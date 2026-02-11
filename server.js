@@ -1,6 +1,7 @@
 const express = require('express');
 const db = require('./database');
 const logger = require('./logger');
+const { apiLimiter, createLimiter, authLimiter, createApiKeyLimiter } = require('./rateLimiter');
 const {
   ValidationError,
   NotFoundError,
@@ -15,21 +16,32 @@ const port = 3000;
 
 app.use(express.json());
 
+// Trust proxy (important for rate limiting by IP)
+app.set('trust proxy', 1);
+
 // Request logging middleware
 app.use((req, res, next) => {
   logger.info(`${req.method} ${req.path}`, {
+    ip: req.ip,
     query: req.query,
     apiKey: req.headers['x-api-key'] ? '***' : 'none'
   });
   next();
 });
 
+// Apply general rate limiter to all API routes
+app.use('/api/', apiLimiter);
+
+// Per-API-key limiter - 1000 requests per hour per key
+const perKeyLimiter = createApiKeyLimiter(1000, 60);
+app.use('/api/', perKeyLimiter);
+
 const VALID_API_KEYS = new Set([
   'your-secret-key-123',
   'another-key-456'
 ]);
 
-// API Key validation middleware
+// API Key validation middleware with auth rate limiting
 function validateApiKey(req, res, next) {
   const apiKey = req.headers['x-api-key'] || req.query.apiKey;
   
@@ -38,13 +50,16 @@ function validateApiKey(req, res, next) {
   }
   
   if (!VALID_API_KEYS.has(apiKey)) {
-    throw new ForbiddenError('Invalid API key');
+    // Apply auth limiter for failed auth attempts
+    return authLimiter(req, res, () => {
+      throw new ForbiddenError('Invalid API key');
+    });
   }
   
   next();
 }
 
-// Health check
+// Health check - no rate limit
 app.get('/health', (req, res) => {
   res.json({ 
     status: 'healthy', 
@@ -80,11 +95,10 @@ app.get('/api/users/:id', validateApiKey, asyncHandler(async (req, res) => {
   res.json({ user });
 }));
 
-// Create new user
-app.post('/api/users', validateApiKey, asyncHandler(async (req, res) => {
+// Create new user - with stricter rate limit
+app.post('/api/users', createLimiter, validateApiKey, asyncHandler(async (req, res) => {
   const { name, email } = req.body;
   
-  // Validation
   if (!name || !email) {
     throw new ValidationError('Name and email are required');
   }
@@ -182,11 +196,10 @@ app.get('/api/products', validateApiKey, asyncHandler(async (req, res) => {
   res.json({ products, count: products.length });
 }));
 
-// Create new product
-app.post('/api/products', validateApiKey, asyncHandler(async (req, res) => {
+// Create new product - with stricter rate limit
+app.post('/api/products', createLimiter, validateApiKey, asyncHandler(async (req, res) => {
   const { name, price, stock } = req.body;
   
-  // Validation
   if (!name || price === undefined) {
     throw new ValidationError('Name and price are required');
   }
@@ -211,12 +224,12 @@ app.post('/api/products', validateApiKey, asyncHandler(async (req, res) => {
   });
 }));
 
-// 404 handler - must be after all routes
+// 404 handler
 app.use((req, res) => {
   throw new NotFoundError(`Endpoint ${req.method} ${req.path} not found`);
 });
 
-// Global error handler - must be last
+// Global error handler
 app.use(errorHandler);
 
 // Graceful shutdown
@@ -229,5 +242,9 @@ process.on('SIGINT', () => {
 app.listen(port, () => {
   logger.success(`Server running on http://localhost:${port}`);
   logger.info(`Database: myservice.db`);
-  logger.info(`API Key: your-secret-key-123`);
+  logger.info(`Rate limits active`);
+  logger.info(`  - General API: 100 req/15min per IP`);
+  logger.info(`  - Per API key: 1000 req/hour`);
+  logger.info(`  - Create operations: 10 req/hour`);
+  logger.info(`  - Auth failures: 5 attempts/15min`);
 });
