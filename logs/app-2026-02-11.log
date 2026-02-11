@@ -1,0 +1,11 @@
+{"timestamp":"2026-02-11T15:28:51.378Z","level":"SUCCESS","message":"Server running on http://localhost:3000"}
+{"timestamp":"2026-02-11T15:28:51.380Z","level":"INFO","message":"Database: myservice.db"}
+{"timestamp":"2026-02-11T15:28:51.381Z","level":"INFO","message":"API Key: your-secret-key-123"}
+{"timestamp":"2026-02-11T15:29:02.454Z","level":"INFO","message":"GET /api/users","query":{},"apiKey":"none"}
+{"timestamp":"2026-02-11T15:29:11.302Z","level":"INFO","message":"GET /api/users","query":{},"apiKey":"***"}
+{"timestamp":"2026-02-11T15:29:19.741Z","level":"INFO","message":"POST /api/users","query":{},"apiKey":"***"}
+{"timestamp":"2026-02-11T15:29:34.537Z","level":"INFO","message":"POST /api/users","query":{},"apiKey":"***"}
+{"timestamp":"2026-02-11T15:29:45.038Z","level":"INFO","message":"POST /api/users","query":{},"apiKey":"***"}
+{"timestamp":"2026-02-11T15:29:51.628Z","level":"INFO","message":"GET /api/users/999","query":{},"apiKey":"***"}
+{"timestamp":"2026-02-11T15:29:59.670Z","level":"INFO","message":"GET /api/users/abc","query":{},"apiKey":"***"}
+{"timestamp":"2026-02-11T15:30:07.515Z","level":"INFO","message":"GET /api/invalid","query":{},"apiKey":"***"}
